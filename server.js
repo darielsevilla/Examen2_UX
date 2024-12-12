@@ -27,7 +27,7 @@ app.options('*', cors())
 
 const port = 3001
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = "mongodb+srv://darielsevilla:DQ7mHwdpmvpWKz7@clusterdarielsevilla.kew8t.mongodb.net/?retryWrites=true&w=majority&appName=ClusterDarielSevilla";
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -63,7 +63,7 @@ app.post("/createUser", async (req, res)=>{
             response: response
         })
     }catch(error){
-        return res.status(500).send({
+        return res.status(402).send({
             message: "No se pudo crear el usuario",
             response: error
         })
@@ -82,7 +82,7 @@ app.post("/logIn", async (req, res)=>{
         
     }catch(error){
 
-        return res.status(500).send({
+        return res.status(402).send({
             message: "No se pudo iniciar sesión",
         })
     }
@@ -91,7 +91,7 @@ app.post("/logIn", async (req, res)=>{
 app.post("/logOut", async (req, res)=>{
     try{
         if(user == ""){
-            return res.status(505).send({
+            return res.status(401).send({
                 message: "No tenia una sesión iniciada",
             })
         }
@@ -104,7 +104,7 @@ app.post("/logOut", async (req, res)=>{
         })
         
     }catch(error){
-        return res.status(500).send({
+        return res.status(402).send({
             message: "No se pudo cerrar sesión",
 
         })
@@ -121,7 +121,7 @@ app.post("/createPost", async (req, res)=>{
         const database = client.db("ExamenUX");
         const collection = database.collection("Post");
         if(!req.body.message){
-            return res.status(502).send({
+            return res.status(401).send({
                 message: "Necesita enviar un mensaje (message)",
             })
         }
@@ -131,15 +131,128 @@ app.post("/createPost", async (req, res)=>{
             ...req.body
         })
         return res.status(200).send({
-            message: "post crado correctamente",
+            message: "post creado correctamente",
             user: user,
             response: response
         })
         
     }catch(error){
-        return res.status(500).send({
+        return res.status(402).send({
             message: "No se pudo crear el post",
             response: error
+        })
+    }
+}) 
+
+app.get("/listPost", async (req, res)=>{
+    try{
+        if(user == ""){
+            return res.status(401).send({
+                message: "Necesita tener una sesión iniciada para listar sus post",
+            })
+        }
+        const database = client.db("ExamenUX");
+        const collection = database.collection("Post");
+        
+    
+        
+        const response = await collection.find({
+            user: user
+        }).toArray();
+        return res.status(200).send({
+            message: "posts recuperados correctamente",
+            lista: response
+        })
+        
+    }catch(error){
+        return res.status(402).send({
+            message: "No se pudo crear el post",
+        })
+    }
+}) 
+
+app.put("/esitPost", async (req, res)=>{
+    try{
+        if(user == ""){
+            return res.status(401).send({
+                message: "Necesita tener una sesión iniciada para listar sus post",
+            })
+        }
+
+        if(req.body.user){
+            return res.status(402).send({
+                message: "No se puede editar el creador del post (valor de user encontrado en el body)",
+            })
+        }
+        const database = client.db("ExamenUX");
+        const collection = database.collection("Post");
+        
+        //si encuentra atributos que ya estan, los editará, y añadira cualquier atributo nuevo que el usuario quiera agregar
+        const response = await collection.updateOne(
+            { 
+                _id: new ObjectId(req.query.id),
+                user: user,
+            },
+            {
+                $set: {
+                    ...req.body
+                }
+            }
+        );
+
+
+        if(response.matchedCount == 0){
+            return res.status(403).send({
+                message: "Este usuario no tiene un post con id=" + req.query.id
+            })
+        }
+        return res.status(200).send({
+            message: "post "+ req.query.id + " actualizado correctamente",
+            response: response
+        })
+        
+    }catch(error){
+        console.log(error)
+        return res.status(402).send({
+            message: "El post no se ha modificado",
+        })
+    }
+}) 
+
+app.delete("/deletePost", async (req, res)=>{
+    try{
+        if(user == ""){
+            return res.status(401).send({
+                message: "Necesita tener una sesión iniciada para listar sus post",
+            })
+        }
+
+        const database = client.db("ExamenUX");
+        const collection = database.collection("Post");
+        
+       
+        const response = await collection.deleteOne(
+            { 
+                _id: new ObjectId(req.query.id),
+                user: user,
+            },
+        );
+
+
+        if(response.deletedCount == 0){
+            return res.status(300).send({
+                mensaje: "Este usuario no tenía ningún post con id="+req.query.id,
+            });
+        }
+        return res.status(200).send({
+            message: "post "+ req.query.id + " eliminado correctamente",
+            response: response
+        })
+        
+    }catch(error){
+        console.log(error)
+        return res.status(402).send({
+            message: "El post no se ha eliminado",
         })
     }
 }) 
